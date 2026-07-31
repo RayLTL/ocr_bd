@@ -1,3 +1,6 @@
 node_modules/
 .ocr-api-config.json
-.ocr-wps-config.json
+.ocr-wps-config.json.idea/
+WPS_DBSHEET_SCHEMA.md
+cf-pages-dbsheet-app/
+wps-docs/
