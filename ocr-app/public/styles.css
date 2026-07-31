@@ -1,0 +1,52 @@
+:root { font-family: "Microsoft YaHei", system-ui, sans-serif; color: #17212b; background: #f3f7f6; }
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 320px; }
+main { width: min(920px, calc(100% - 32px)); margin: 56px auto; }
+header { border-left: 4px solid #0d7a68; padding-left: 18px; display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; }
+.eyebrow { color: #0d7a68; font-weight: 700; margin: 0 0 8px; }
+h1 { margin: 0; font-size: 36px; }
+header > p:last-child { color: #52606d; margin-bottom: 30px; }
+.workspace { background: #fff; border: 1px solid #d8e2df; border-radius: 8px; padding: 22px; }
+.service-picker { position: relative; display: grid; gap: 7px; margin-bottom: 16px; }
+.service-picker > label { color: #37514b; font-size: 14px; font-weight: 700; }
+.service-control { position: relative; }
+#service-search { width: 100%; min-height: 42px; border: 1px solid #a8bbb5; border-radius: 5px; padding: 9px 12px; color: #17212b; font: inherit; }
+.service-list { position: absolute; z-index: 2; top: calc(100% + 4px); width: 100%; max-height: 300px; overflow-y: auto; border: 1px solid #a8bbb5; border-radius: 5px; background: #fff; box-shadow: 0 10px 24px rgb(23 33 43 / 15%); }
+.service-option { width: 100%; display: grid; gap: 3px; border-radius: 0; padding: 10px 12px; color: #253932; text-align: left; background: #fff; }
+.service-option:hover, .service-option[aria-selected="true"] { background: #e7f4f0; color: #075d50; }
+.service-option + .service-option { border-top: 1px solid #e1e9e6; }
+.service-option span { color: #60736d; font-size: 12px; }
+.dropzone { display: grid; place-items: center; min-height: 270px; border: 2px dashed #a5c4bc; background: #f8fbfa; cursor: pointer; overflow: hidden; text-align: center; }
+.dropzone:hover { border-color: #0d7a68; }
+#file-input { position: absolute; opacity: 0; pointer-events: none; }
+#upload-copy { display: grid; gap: 8px; color: #52606d; }
+#upload-copy strong { color: #0d7a68; font-size: 20px; }
+#preview { max-width: 100%; max-height: 390px; object-fit: contain; }
+.actions, .result-heading, .result-tools { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 16px; }
+button { border: 0; border-radius: 5px; padding: 10px 16px; background: #0d7a68; color: #fff; font: inherit; cursor: pointer; }
+button:disabled { background: #9eaaa7; cursor: not-allowed; }
+#status { color: #52606d; font-size: 14px; }
+.result { border-top: 1px solid #d8e2df; margin-top: 20px; }
+h2 { font-size: 18px; }
+#copy { background: #394a59; padding: 7px 12px; }
+.secondary { background: #e8f0ee; color: #25433c; }
+.danger { background: #a33d35; }
+.icon-button { background: transparent; color: #40514d; font-size: 28px; line-height: 1; padding: 2px 9px; }
+.segmented { display: inline-flex; border: 1px solid #9db8b1; border-radius: 5px; overflow: hidden; }
+.segmented button { border-radius: 0; background: #fff; color: #37514b; padding: 7px 12px; }
+.segmented button + button { border-left: 1px solid #9db8b1; }
+.segmented button.active { background: #0d7a68; color: #fff; }
+pre { margin: 0; min-height: 180px; white-space: pre-wrap; overflow-wrap: anywhere; color: #263541; font: 15px/1.65 ui-monospace, Consolas, monospace; }
+dialog { width: min(520px, calc(100% - 28px)); border: 1px solid #c8d5d1; border-radius: 8px; padding: 0; color: #17212b; box-shadow: 0 16px 48px rgb(23 33 43 / 24%); }
+dialog::backdrop { background: rgb(23 33 43 / 38%); }
+#settings-form { display: grid; gap: 16px; padding: 24px; }
+.dialog-heading { display: flex; align-items: flex-start; justify-content: space-between; }
+.dialog-heading h2 { margin: 0; }
+.dialog-heading .eyebrow { margin-bottom: 4px; }
+#settings-form label { display: grid; gap: 7px; color: #37514b; font-size: 14px; font-weight: 700; }
+#settings-form input, #settings-form select { min-height: 40px; border: 1px solid #a8bbb5; border-radius: 4px; padding: 8px 10px; color: #17212b; font: inherit; font-weight: 400; background: #fff; }
+.settings-actions, .dialog-actions { display: flex; justify-content: flex-end; gap: 10px; }
+.dialog-actions { justify-content: space-between; border-top: 1px solid #d8e2df; padding-top: 16px; }
+.hint { margin: -6px 0 0; color: #52606d; font-size: 13px; }
+.service-picker .hint { margin: 0; }
+@media (max-width: 560px) { main { margin: 28px auto; } h1 { font-size: 28px; } header { flex-direction: column; } .workspace { padding: 14px; } .actions, .result-heading { align-items: flex-start; flex-direction: column; } .settings-actions { justify-content: flex-start; flex-wrap: wrap; } }

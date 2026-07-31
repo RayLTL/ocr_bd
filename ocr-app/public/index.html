@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>OCR 工作台</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main>
+      <header>
+        <div><p class="eyebrow">Baidu AI</p><h1>OCR 工作台</h1><p>上传图片，提取其中的中文与英文文本。</p></div>
+        <button id="api-settings" type="button">API 设置</button>
+      </header>
+      <section class="workspace" aria-label="OCR recognition">
+        <section class="service-picker" aria-label="OCR service selection">
+          <label for="service-search">OCR 接口</label>
+          <div class="service-control"><input id="service-search" type="search" autocomplete="off" placeholder="搜索接口：名称、分类或路径" /><div id="service-list" class="service-list" role="listbox" hidden></div></div>
+          <p id="service-description" class="hint"></p>
+        </section>
+        <label class="dropzone" id="dropzone" for="file-input">
+          <input id="file-input" type="file" accept="image/jpeg,image/png,image/webp,image/bmp" />
+          <img id="preview" hidden alt="所选图片预览" />
+          <div id="upload-copy"><strong>选择图片</strong><span>JPG、PNG、WebP 或 BMP，最大 5 MB</span></div>
+        </label>
+        <div class="actions"><button id="recognize" type="button" disabled>识别文字</button><span id="status" role="status">等待图片</span></div>
+        <section class="result" aria-live="polite"><div class="result-heading"><h2>识别结果</h2><div class="result-tools"><div class="segmented" role="group" aria-label="输出模式"><button id="layout-mode" type="button" class="active" disabled>按版式</button><button id="plain-mode" type="button" disabled>逐行</button></div><button id="copy" type="button" disabled title="复制文本">复制</button></div></div><pre id="result-text">识别后的文本会显示在这里。</pre></section>
+      </section>
+    </main>
+    <dialog id="settings-dialog">
+      <form id="settings-form">
+        <div class="dialog-heading"><div><p class="eyebrow">Credentials</p><h2>API 设置</h2></div><button id="close-settings" class="icon-button" type="button" aria-label="关闭">&times;</button></div>
+        <label>已保存配置<select id="profile-select"></select></label>
+        <div class="settings-actions"><button id="activate-profile" type="button">切换至此配置</button><button id="new-profile" class="secondary" type="button">新建配置</button></div>
+        <label>配置名称<input id="profile-name" required maxlength="48" placeholder="例如：生产环境" /></label>
+        <label>API Key<input id="api-key" autocomplete="off" placeholder="保存时需填写" /></label>
+        <label>Secret Key<input id="secret-key" type="password" autocomplete="new-password" placeholder="保存时需填写" /></label>
+        <p id="profile-hint" class="hint"></p>
+        <div class="dialog-actions"><button id="delete-profile" class="danger" type="button">删除</button><button id="save-profile" type="submit">保存配置</button></div>
+      </form>
+    </dialog>
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>
