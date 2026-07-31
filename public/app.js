@@ -226,7 +226,7 @@ recognize.addEventListener("click", async () => {
     showResult("layout");
     copy.disabled = !result.layoutText;
     layoutMode.disabled = !result.hasLayout;
-    plainMode.disabled = !result.hasLayout;
+    plainMode.disabled = false;
     btnExportTxt.disabled = false;
     btnExportXlsx.disabled = false;
     setStatus(`已识别 ${result.wordsCount} 行文字`);

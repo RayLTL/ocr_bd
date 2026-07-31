@@ -104,13 +104,28 @@ async function getAccessToken(apiKey, secretKey) {
 }
 
 // 从各种 OCR 响应格式中提取文本
+// 返回 { lines: string[], hasLayout: boolean, layoutLines: string[] }
 function extractText(data) {
-  // PPOCR
-  if (data.page_result && data.page_result[0]?.lines) return data.page_result[0].lines;
-  // 标准格式
-  if (Array.isArray(data.words_result)) return data.words_result.map((w) => w.words).filter(Boolean);
+  // PPOCR - 有位置信息
+  if (data.page_result && data.page_result[0]?.lines) {
+    const lines = data.page_result[0].lines.map(l => typeof l === "string" ? l : (l.words || ""));
+    return { lines, hasLayout: true, layoutLines: lines };
+  }
+  // 标准格式（含 words_result）
+  if (Array.isArray(data.words_result)) {
+    const lines = data.words_result.map((w) => w.words).filter(Boolean);
+    const hasLocation = data.words_result.some(w => w.location);
+    if (hasLocation) {
+      const layoutLines = generateLayoutLines(data.words_result);
+      return { lines, hasLayout: true, layoutLines };
+    }
+    return { lines, hasLayout: false, layoutLines: lines };
+  }
   // 二维码
-  if (Array.isArray(data.codes_result)) return data.codes_result.flatMap((c) => c.text || []);
+  if (Array.isArray(data.codes_result)) {
+    const lines = data.codes_result.flatMap((c) => c.text || []);
+    return { lines, hasLayout: false, layoutLines: lines };
+  }
   // 银行卡
   if (data.result?.bank_card_number) {
     const r = data.result;
@@ -118,7 +133,7 @@ function extractText(data) {
     if (r.bank_card_number) lines.push("银行卡号: " + r.bank_card_number);
     if (r.bank_name) lines.push("银行: " + r.bank_name);
     if (r.holder_name) lines.push("持卡人: " + r.holder_name);
-    return lines;
+    return { lines, hasLayout: false, layoutLines: lines };
   }
   // 通用卡证
   if (data.results && typeof data.results === "object" && !Array.isArray(data.results)) {
@@ -139,13 +154,48 @@ function extractText(data) {
         }
       }
     }
-    return lines;
+    return { lines, hasLayout: false, layoutLines: lines };
   }
   // 文档分析
   if (Array.isArray(data.results) && data.results[0]?.words?.word) {
-    return data.results.map((r) => r.words.word).filter(Boolean);
+    const lines = data.results.map((r) => r.words.word).filter(Boolean);
+    return { lines, hasLayout: false, layoutLines: lines };
   }
-  return [];
+  return { lines: [], hasLayout: false, layoutLines: [] };
+}
+
+// 根据 words_result 中的 location 信息生成版式文本（保持列对齐）
+function generateLayoutLines(wordsResult) {
+  const withLoc = wordsResult.filter(w => w.location && w.words);
+  if (withLoc.length < 2) return withLoc.map(w => w.words);
+
+  // 按垂直位置分组（允许 10px 误差）
+  const sorted = [...withLoc].sort((a, b) => a.location.top - b.location.top);
+  const rows = [];
+  let currentRow = [sorted[0]];
+  for (let i = 1; i < sorted.length; i++) {
+    const prevTop = sorted[i - 1].location.top;
+    const currTop = sorted[i].location.top;
+    if (Math.abs(currTop - prevTop) < 10) {
+      currentRow.push(sorted[i]);
+    } else {
+      rows.push(currentRow);
+      currentRow = [sorted[i]];
+    }
+  }
+  if (currentRow.length) rows.push(currentRow);
+
+  // 每行内按 left 排序，根据位置差插入空格对齐
+  return rows.map(row => {
+    row.sort((a, b) => a.location.left - b.location.left);
+    let text = row[0].words;
+    for (let i = 1; i < row.length; i++) {
+      const gap = row[i].location.left - (row[i - 1].location.left + row[i - 1].location.width);
+      const spaces = Math.max(2, Math.round(gap / 8));
+      text += " ".repeat(spaces) + row[i].words;
+    }
+    return text;
+  });
 }
 
 export async function onRequest(context) {
@@ -219,11 +269,13 @@ export async function onRequest(context) {
       });
     }
 
-    const lines = extractText(ocrData);
+    const result = extractText(ocrData);
+    const { lines, hasLayout, layoutLines } = result;
     const plainText = lines.join("\n");
+    const layoutText = layoutLines.join("\n");
 
     return new Response(JSON.stringify({
-      ok: true, lines, wordsCount: lines.length, text: plainText, plainText, layoutText: plainText, hasLayout: false
+      ok: true, lines, wordsCount: lines.length, text: plainText, plainText, layoutText, hasLayout
     }), {
       status: 200, headers: { "Content-Type": "application/json" }
     });
