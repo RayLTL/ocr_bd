@@ -74,12 +74,106 @@ export function validateImagePayload(payload) {
     return { ok: false, message: "Use a JPG, PNG, WebP, or BMP image." };
   }
 
-  const imageBytes = Buffer.byteLength(imageBase64, "base64");
+  const imageBytes = Math.ceil(imageBase64.length * 3 / 4);
   if (imageBytes === 0 || imageBytes > MAX_IMAGE_BYTES) {
     return { ok: false, message: "Image size must be between 1 byte and 5 MB." };
   }
 
   return { ok: true, imageBytes };
+}
+
+/**
+ * 从各种格式的 OCR 响应中提取文本行列表
+ * 返回 { lines: string[], hasLocation: boolean }
+ */
+function extractLines(payload) {
+  // PPOCR 格式: page_result[0].lines
+  if (Array.isArray(payload?.page_result) && payload.page_result.length > 0) {
+    return { lines: payload.page_result[0].lines || [], hasLocation: false };
+  }
+
+  // 二维码识别: codes_result[].text
+  if (Array.isArray(payload?.codes_result)) {
+    const lines = payload.codes_result.flatMap((c) => (Array.isArray(c.text) ? c.text : [c.text || ""]));
+    return { lines, hasLocation: false };
+  }
+
+  // 银行卡识别: result.bank_card_number
+  if (payload?.result && typeof payload.result.bank_card_number === "string") {
+    const result = payload.result;
+    const lines = [];
+    if (result.bank_card_number) lines.push("银行卡号: " + result.bank_card_number);
+    if (result.bank_name) lines.push("银行: " + result.bank_name);
+    if (result.holder_name) lines.push("持卡人: " + result.holder_name);
+    if (result.valid_date && result.valid_date !== "NO VALID") lines.push("有效期: " + result.valid_date);
+    return { lines, hasLocation: false };
+  }
+
+  // 印章识别: result[]
+  if (Array.isArray(payload?.result) && payload.result.length > 0) {
+    const lines = payload.result.filter((r) => typeof r === "string").map((r) => r);
+    return { lines, hasLocation: false };
+  }
+
+  // 通用卡证票据识别: results{key: [{words: [...]}]}
+  if (payload?.results && typeof payload.results === "object" && !Array.isArray(payload.results)) {
+    const lines = [];
+    for (const key of Object.keys(payload.results)) {
+      const item = payload.results[key];
+      if (typeof item === "object") {
+        for (const fieldName of Object.keys(item)) {
+          const field = item[fieldName];
+          if (Array.isArray(field)) {
+            for (const entry of field) {
+              if (entry?.words) {
+                const words = Array.isArray(entry.words) ? entry.words.join(" ") : entry.words;
+                lines.push(fieldName + ": " + words);
+              }
+            }
+          }
+        }
+      }
+    }
+    return { lines, hasLocation: false };
+  }
+
+  // 试卷分析与识别: results[].words.word + words_location
+  if (Array.isArray(payload?.results) && payload.results.length > 0 && payload.results[0]?.words?.word) {
+    const items = payload.results
+      .filter((r) => r?.words?.word)
+      .map((r) => ({
+        words: r.words.word,
+        location: r.words.words_location || null
+      }));
+    const lines = items.map((i) => i.words);
+    const hasLocation = items.some((i) => i.location && i.location.left !== undefined);
+    return { lines, items, hasLocation };
+  }
+
+  // 表格文字识别 V2: table_num + results 或 body
+  if (payload?.table_num !== undefined) {
+    const lines = [];
+    if (Array.isArray(payload?.results)) {
+      for (const table of payload.results) {
+        if (Array.isArray(table?.body)) {
+          for (const cell of table.body) {
+            if (cell?.word) lines.push(cell.word);
+          }
+        }
+      }
+    }
+    return { lines: lines.length > 0 ? lines : ["（未检测到表格内容）"], hasLocation: false };
+  }
+
+  // 标准格式: words_result[]
+  if (Array.isArray(payload?.words_result)) {
+    const items = payload.words_result.filter((item) => item?.words);
+    const lines = items.map((item) => item.words);
+    const hasLocation = items.some((item) => item.location?.left !== undefined);
+    return { lines, items, hasLocation };
+  }
+
+  return { lines: [], hasLocation: false };
 }
 
 export function normalizeOcrResponse(payload) {
@@ -91,12 +185,35 @@ export function normalizeOcrResponse(payload) {
     };
   }
 
-  const wordsResult = Array.isArray(payload?.words_result) ? payload.words_result.filter((item) => item?.words) : [];
-  const lines = wordsResult.map((item) => item.words);
+  const { lines, items, hasLocation } = extractLines(payload);
   const plainText = lines.join("\n");
-  const layoutText = formatTextByLayout(wordsResult) || plainText;
 
-  return { ok: true, lines, text: layoutText, plainText, layoutText, hasLayout: layoutText !== plainText, wordsCount: payload?.words_result_num ?? lines.length };
+  let layoutText = plainText;
+  let actualHasLayout = false;
+
+  // 有位置信息时尝试版式重建
+  if (hasLocation && items && items.length > 0) {
+    // 统一位置字段名: words_result 用 location, doc_analysis 用 words_location
+    const normalized = items.map((item) => ({
+      words: item.words,
+      location: item.location || item.words_location
+    }));
+    const rebuilt = formatTextByLayout(normalized);
+    if (rebuilt) {
+      layoutText = rebuilt;
+      actualHasLayout = true;
+    }
+  }
+
+  return {
+    ok: true,
+    lines,
+    text: layoutText,
+    plainText,
+    layoutText,
+    hasLayout: actualHasLayout,
+    wordsCount: lines.length
+  };
 }
 
 export async function requestAccessToken(apiKey, secretKey, fetchFn = fetch) {

@@ -2,10 +2,15 @@
 * { box-sizing: border-box; }
 body { margin: 0; min-width: 320px; }
 main { width: min(920px, calc(100% - 32px)); margin: 56px auto; }
-header { border-left: 4px solid #0d7a68; padding-left: 18px; display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; }
+header { border-left: 4px solid #0d7a68; padding-left: 18px; display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+.api-status { font-size: 12px; color: #60736d; padding: 4px 10px; border-radius: 12px; background: #e8f0ee; white-space: nowrap; }
+.api-status.ready { color: #0d7a68; background: #dff0ea; }
+.api-status.error { color: #a33d35; background: #f5e8e6; }
 .eyebrow { color: #0d7a68; font-weight: 700; margin: 0 0 8px; }
 h1 { margin: 0; font-size: 36px; }
 header > p:last-child { color: #52606d; margin-bottom: 30px; }
+.header-btn { background: #e8f0ee; color: #25433c; padding: 7px 14px; font-size: 13px; }
+.header-btn:hover { background: #d4e3df; }
 .workspace { background: #fff; border: 1px solid #d8e2df; border-radius: 8px; padding: 22px; }
 .service-picker { position: relative; display: grid; gap: 7px; margin-bottom: 16px; }
 .service-picker > label { color: #37514b; font-size: 14px; font-weight: 700; }
@@ -16,8 +21,10 @@ header > p:last-child { color: #52606d; margin-bottom: 30px; }
 .service-option:hover, .service-option[aria-selected="true"] { background: #e7f4f0; color: #075d50; }
 .service-option + .service-option { border-top: 1px solid #e1e9e6; }
 .service-option span { color: #60736d; font-size: 12px; }
-.dropzone { display: grid; place-items: center; min-height: 270px; border: 2px dashed #a5c4bc; background: #f8fbfa; cursor: pointer; overflow: hidden; text-align: center; }
+.dropzone { display: grid; place-items: center; min-height: 270px; border: 2px dashed #a5c4bc; background: #f8fbfa; cursor: pointer; overflow: hidden; text-align: center; transition: border-color .15s, background .15s; }
 .dropzone:hover { border-color: #0d7a68; }
+.dropzone.drag-over { border-color: #0d7a68; border-style: solid; background: #e7f4f0; }
+.dropzone.drag-over #upload-copy strong::after { content: " - 松开以上传"; color: #0d7a68; font-size: 16px; }
 #file-input { position: absolute; opacity: 0; pointer-events: none; }
 #upload-copy { display: grid; gap: 8px; color: #52606d; }
 #upload-copy strong { color: #0d7a68; font-size: 20px; }
@@ -25,10 +32,14 @@ header > p:last-child { color: #52606d; margin-bottom: 30px; }
 .actions, .result-heading, .result-tools { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 16px; }
 button { border: 0; border-radius: 5px; padding: 10px 16px; background: #0d7a68; color: #fff; font: inherit; cursor: pointer; }
 button:disabled { background: #9eaaa7; cursor: not-allowed; }
+button:not(:disabled):active { transform: scale(0.98); }
 #status { color: #52606d; font-size: 14px; }
 .result { border-top: 1px solid #d8e2df; margin-top: 20px; }
 h2 { font-size: 18px; }
 #copy { background: #394a59; padding: 7px 12px; }
+#export-txt { background: #25433c; padding: 7px 12px; }
+#export-xlsx { background: #075d50; padding: 7px 12px; }
+.export-tools { display: flex; gap: 6px; }
 .secondary { background: #e8f0ee; color: #25433c; }
 .danger { background: #a33d35; }
 .icon-button { background: transparent; color: #40514d; font-size: 28px; line-height: 1; padding: 2px 9px; }

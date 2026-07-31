@@ -1,22 +1,69 @@
 # Baidu OCR Workbench
 
-Local OCR application for Baidu AI OCR services. It keeps Baidu credentials on the server, supports multiple local API profiles, and provides a searchable catalog of supported OCR endpoints.
+本地 OCR 应用，调用百度 AI OCR 服务，支持 60+ 接口，识别结果可导出 TXT / Excel。
 
-## Run locally
+## 部署到 Cloudflare Pages
 
-1. Create `ocr-app/.env` from `.env.example` and set `BAIDU_OCR_API_KEY` and `BAIDU_OCR_SECRET_KEY`.
-2. Run `npm start` in this directory.
-3. Open `http://localhost:3000`.
+### 1. 推送代码到 GitHub
 
-## Security
+```bash
+git push -u origin main
+```
 
-- `.env` and `.ocr-api-config.json` contain credentials and are ignored by Git.
-- The browser receives only a masked API Key hint. Secret Keys remain server-side.
+### 2. 在 Cloudflare Pages 创建项目
 
-## Verification
+1. 登录 [Cloudflare Dashboard](https://dash.cloudflare.com/)
+2. 进入 **Workers & Pages** → **创建** → **Pages** → **连接到 Git**
+3. 选择 `ocr_bd` 仓库
+4. 构建设置保持默认（无需构建命令，输出目录留空）
+5. 点击 **保存并部署**
 
-Run `npm test` to execute input validation, OCR response formatting, layout reconstruction, endpoint selection, and service-catalog tests.
+### 3. 配置环境变量
 
-## Service catalog
+部署后，在 Pages 项目设置中：
 
-The interface includes searchable, allowlisted Baidu OCR services that accept a single image request. Multi-step task APIs and template-dependent services are intentionally not exposed as one-click image recognition.
+1. 进入 **设置** → **环境变量**
+2. 添加以下变量：
+
+| 变量名 | 值 |
+|--------|-----|
+| `BAIDU_OCR_API_KEY` | 你的百度 OCR API Key |
+| `BAIDU_OCR_SECRET_KEY` | 你的百度 OCR Secret Key |
+
+3. 进入 **Functions** → **兼容性标志**，添加 `nodejs_compat`
+
+### 4. 重新部署
+
+设置环境变量后，重新部署以使配置生效。
+
+## 本地开发
+
+```bash
+npx wrangler pages dev . --binding -- npm run test
+```
+
+## 项目结构
+
+```
+├── public/              # 前端静态文件
+│   ├── index.html
+│   ├── app.js
+│   └── styles.css
+├── functions/           # Pages Functions (API)
+│   └── api/
+│       ├── ocr.js       # POST /api/ocr
+│       ├── services.js  # GET /api/services
+│       └── health.js    # GET /api/health
+├── lib/                 # 共享库
+│   ├── baidu.js         # 百度 OCR 调用逻辑
+│   └── services.js      # OCR 服务目录
+├── test/                # 测试
+│   └── baidu.test.js
+└── package.json
+```
+
+## 测试
+
+```bash
+npm test
+```

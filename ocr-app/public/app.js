@@ -5,21 +5,16 @@ const recognize = document.querySelector("#recognize");
 const status = document.querySelector("#status");
 const resultText = document.querySelector("#result-text");
 const copy = document.querySelector("#copy");
+const btnExportTxt = document.querySelector("#export-txt");
+const btnExportXlsx = document.querySelector("#export-xlsx");
 const layoutMode = document.querySelector("#layout-mode");
 const plainMode = document.querySelector("#plain-mode");
 const serviceSearch = document.querySelector("#service-search");
 const serviceList = document.querySelector("#service-list");
 const serviceDescription = document.querySelector("#service-description");
-const settingsDialog = document.querySelector("#settings-dialog");
-const profileSelect = document.querySelector("#profile-select");
-const profileName = document.querySelector("#profile-name");
-const apiKey = document.querySelector("#api-key");
-const secretKey = document.querySelector("#secret-key");
-const profileHint = document.querySelector("#profile-hint");
+const apiStatus = document.querySelector("#api-status");
 let selectedImage;
 let recognizedResult;
-let profiles = [];
-let activeProfileId;
 let services = [];
 let selectedService;
 
@@ -28,7 +23,7 @@ function setStatus(message) { status.textContent = message; }
 async function api(path, options) {
   const response = await fetch(path, options);
   const data = await response.json();
-  if (!response.ok) throw new Error(data.message || "请求失败。");
+  if (!response.ok) throw new Error(data.message || data.error || "请求失败。");
   return data;
 }
 
@@ -62,8 +57,6 @@ function selectFile(file) {
   recognize.disabled = false;
   setStatus(`${file.name}，已准备识别`);
 }
-
-function currentProfile() { return profiles.find((profile) => profile.id === profileSelect.value); }
 
 function matchesService(service, query) {
   const normalizedQuery = query.trim().toLowerCase();
@@ -107,49 +100,123 @@ async function loadServices() {
   selectService(services.find((service) => service.id === data.defaultServiceId) || services[0]);
 }
 
-function renderProfiles() {
-  profileSelect.replaceChildren(...profiles.map((profile) => {
-    const option = document.createElement("option");
-    option.value = profile.id;
-    option.textContent = `${profile.name}${profile.isActive ? "（当前）" : ""}`;
-    return option;
-  }));
-  profileSelect.value = activeProfileId || profiles[0]?.id || "";
-  loadSelectedProfile();
+async function checkApiStatus() {
+  try {
+    const data = await api("/api/health");
+    if (data.ready) {
+      apiStatus.innerHTML = "&#9679; API 已就绪";
+      apiStatus.className = "api-status ready";
+    } else {
+      apiStatus.innerHTML = "&#9679; API 未配置";
+      apiStatus.className = "api-status error";
+    }
+  } catch {
+    apiStatus.innerHTML = "&#9679; 连接失败";
+    apiStatus.className = "api-status error";
+  }
 }
 
-function loadSelectedProfile() {
-  const profile = currentProfile();
-  if (!profile) {
-    profileName.value = "";
-    apiKey.value = "";
-    secretKey.value = "";
-    profileHint.textContent = "尚未保存 API 配置。新建配置后即可识别。";
+// ========== 导出功能（客户端） ==========
+
+function downloadBlob(blob, fileName) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function getCurrentText() {
+  return resultText.textContent || "";
+}
+
+function getExportFileName(ext) {
+  const base = selectedImage ? selectedImage.name.replace(/\.[^.]+$/, "") : "ocr_result";
+  const serviceTag = selectedService ? selectedService.id : "unknown";
+  return `${base}_${serviceTag}.${ext}`;
+}
+
+function exportTxt() {
+  const text = getCurrentText();
+  if (!text) return;
+  const fileName = getExportFileName("txt");
+  const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+  downloadBlob(blob, fileName);
+  setStatus(`已导出 ${fileName}`);
+}
+
+function exportXlsx() {
+  const text = getCurrentText();
+  if (!text) return;
+  const fileName = getExportFileName("xlsx");
+
+  if (typeof XLSX === "undefined") {
+    setStatus("Excel 导出库未加载，请检查网络后重试");
     return;
   }
-  profileName.value = profile.name;
-  apiKey.value = "";
-  secretKey.value = "";
-  apiKey.placeholder = `当前：${profile.apiKeyHint}，留空则保留`;
-  secretKey.placeholder = "留空则保留当前 Secret Key";
-  profileHint.textContent = profile.isActive ? "当前用于 OCR 识别的配置。" : "保存后可切换为当前识别配置。";
+
+  // 检测是否有分列特征（>=2个空格），有则自动分列
+  const lines = text.split("\n").filter((l) => l.trim());
+  const hasMultiColumn = lines.some((line) => {
+    let inGap = false, gapLen = 0;
+    for (let i = line.length - 1; i >= 0; i--) {
+      if (line[i] === " ") { if (!inGap) { inGap = true; gapLen = 1; } else { gapLen++; } }
+      else { if (inGap && gapLen >= 2) return true; inGap = false; gapLen = 0; }
+    }
+    return false;
+  });
+
+  let data;
+  if (hasMultiColumn && lines.length >= 2) {
+    // 逐行分列
+    const parts = lines.map((line) => {
+      let gapEnd = -1, inGap = false;
+      for (let i = line.length - 1; i >= 0; i--) {
+        if (line[i] === " ") { if (!inGap) { inGap = true; gapEnd = i + 1; } }
+        else { if (inGap && (gapEnd - (i + 1)) >= 2) return [line.slice(0, i + 1).trim(), line.slice(gapEnd).trim()]; inGap = false; }
+      }
+      return [line.trim()];
+    });
+    const maxCols = Math.max(...parts.map((p) => p.length));
+    const headers = parts[0].length >= 2 ? parts[0] : Array.from({ length: maxCols }, (_, i) => `列 ${i + 1}`);
+    data = [headers, ...parts.slice(1).map((p) => { while (p.length < maxCols) p.push(""); return p; })];
+  } else {
+    data = [["行号", "文本"], ...lines.map((line, i) => [i + 1, line.trim()])];
+  }
+
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet(data);
+  ws["!cols"] = data[0].map((h) => ({ wch: Math.max(String(h).length * 2 + 4, 12) }));
+  XLSX.utils.book_append_sheet(wb, ws, "OCR 结果");
+
+  const buffer = XLSX.write(wb, { type: "array", bookType: "xlsx" });
+  const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+  downloadBlob(blob, fileName);
+  setStatus(`已导出 ${fileName}`);
 }
 
-async function refreshProfiles() {
-  const data = await api("/api/profiles");
-  profiles = data.profiles;
-  activeProfileId = data.activeProfileId;
-  renderProfiles();
-}
+// ========== 事件绑定 ==========
 
 input.addEventListener("change", () => selectFile(input.files[0]));
-document.querySelector("#dropzone").addEventListener("dragover", (event) => event.preventDefault());
-document.querySelector("#dropzone").addEventListener("drop", (event) => { event.preventDefault(); selectFile(event.dataTransfer.files[0]); });
+
+// 拖拽交互
+const dropzone = document.querySelector("#dropzone");
+function dragHighlight() { dropzone.classList.add("drag-over"); }
+function dragUnhighlight() { dropzone.classList.remove("drag-over"); }
+dropzone.addEventListener("dragenter", (event) => { event.preventDefault(); dragHighlight(); });
+dropzone.addEventListener("dragover", (event) => { event.preventDefault(); dragHighlight(); });
+dropzone.addEventListener("dragleave", (event) => { if (!dropzone.contains(event.relatedTarget)) dragUnhighlight(); });
+dropzone.addEventListener("drop", (event) => { event.preventDefault(); dragUnhighlight(); selectFile(event.dataTransfer.files[0]); });
 
 recognize.addEventListener("click", async () => {
   if (!selectedImage) return;
   recognize.disabled = true;
   copy.disabled = true;
+  btnExportTxt.disabled = true;
+  btnExportXlsx.disabled = true;
   setStatus("正在识别...");
   resultText.textContent = "";
   try {
@@ -160,6 +227,8 @@ recognize.addEventListener("click", async () => {
     copy.disabled = !result.layoutText;
     layoutMode.disabled = !result.hasLayout;
     plainMode.disabled = !result.hasLayout;
+    btnExportTxt.disabled = false;
+    btnExportXlsx.disabled = false;
     setStatus(`已识别 ${result.wordsCount} 行文字`);
   } catch (error) {
     resultText.textContent = error.message;
@@ -172,45 +241,23 @@ recognize.addEventListener("click", async () => {
 layoutMode.addEventListener("click", () => showResult("layout"));
 plainMode.addEventListener("click", () => showResult("plain"));
 copy.addEventListener("click", async () => { await navigator.clipboard.writeText(resultText.textContent); setStatus("已复制识别结果"); });
+btnExportTxt.addEventListener("click", exportTxt);
+btnExportXlsx.addEventListener("click", exportXlsx);
 
 serviceSearch.addEventListener("focus", () => { serviceSearch.select(); renderServices(serviceSearch.value); serviceList.hidden = false; });
 serviceSearch.addEventListener("input", () => { renderServices(serviceSearch.value); serviceList.hidden = false; });
+serviceSearch.addEventListener("blur", () => { setTimeout(() => { serviceList.hidden = true; }, 150); });
 serviceList.addEventListener("mousedown", (event) => event.preventDefault());
 serviceList.addEventListener("click", (event) => {
   const option = event.target.closest(".service-option");
   if (!option) return;
   selectService(services.find((service) => service.id === option.dataset.serviceId));
+  serviceList.hidden = true;
+});
+document.addEventListener("click", (event) => {
+  if (!event.target.closest(".service-picker")) serviceList.hidden = true;
 });
 
-document.querySelector("#api-settings").addEventListener("click", async () => { await refreshProfiles(); settingsDialog.showModal(); });
-document.querySelector("#close-settings").addEventListener("click", () => settingsDialog.close());
-profileSelect.addEventListener("change", loadSelectedProfile);
-document.querySelector("#new-profile").addEventListener("click", () => {
-  profileSelect.value = "";
-  profileName.value = "";
-  apiKey.value = "";
-  secretKey.value = "";
-  apiKey.placeholder = "请输入新的 API Key";
-  secretKey.placeholder = "请输入新的 Secret Key";
-  profileHint.textContent = "保存后将自动成为当前识别配置。";
-});
-document.querySelector("#activate-profile").addEventListener("click", async () => {
-  if (!currentProfile()) return;
-  await api(`/api/profiles/${encodeURIComponent(currentProfile().id)}/activate`, { method: "POST" });
-  await refreshProfiles();
-});
-document.querySelector("#delete-profile").addEventListener("click", async () => {
-  if (!currentProfile() || !confirm(`删除“${currentProfile().name}”吗？`)) return;
-  await api(`/api/profiles/${encodeURIComponent(currentProfile().id)}`, { method: "DELETE" });
-  await refreshProfiles();
-});
-document.querySelector("#settings-form").addEventListener("submit", async (event) => {
-  event.preventDefault();
-  const payload = { name: profileName.value, apiKey: apiKey.value, secretKey: secretKey.value };
-  const profile = currentProfile();
-  if (profile) await api(`/api/profiles/${encodeURIComponent(profile.id)}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
-  else await api("/api/profiles", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
-  await refreshProfiles();
-});
-
+// 初始化
 loadServices().catch((error) => setStatus(error.message));
+checkApiStatus();
