@@ -6,6 +6,7 @@ const status = document.querySelector("#status");
 const resultText = document.querySelector("#result-text");
 const copy = document.querySelector("#copy");
 const copyLatex = document.querySelector("#copy-latex");
+const copyMathml = document.querySelector("#copy-mathml");
 const btnExportTxt = document.querySelector("#export-txt");
 const btnExportXlsx = document.querySelector("#export-xlsx");
 const layoutMode = document.querySelector("#layout-mode");
@@ -77,9 +78,10 @@ function selectService(service) {
   selectedService = service;
   serviceSearch.value = service.name;
   serviceDescription.textContent = `${service.category} · 剩余免费 ${service.freeQuota} 次 · ${service.id}`;
-  // 公式识别接口显示复制 LaTeX 按钮
+  // 公式识别接口显示 LaTeX 相关按钮
   const isFormula = service.id === "formula";
   copyLatex.hidden = !isFormula;
+  copyMathml.hidden = !isFormula;
   serviceList.hidden = true;
 }
 
@@ -219,6 +221,8 @@ recognize.addEventListener("click", async () => {
   if (!selectedImage) return;
   recognize.disabled = true;
   copy.disabled = true;
+  copyLatex.disabled = true;
+  copyMathml.disabled = true;
   btnExportTxt.disabled = true;
   btnExportXlsx.disabled = true;
   setStatus("正在识别...");
@@ -231,6 +235,8 @@ recognize.addEventListener("click", async () => {
     copy.disabled = !result.layoutText;
     copyLatex.disabled = false;
     copyLatex.hidden = selectedService?.id !== "formula";
+    copyMathml.disabled = false;
+    copyMathml.hidden = selectedService?.id !== "formula";
     layoutMode.disabled = !result.hasLayout;
     plainMode.disabled = false;
     btnExportTxt.disabled = false;
@@ -251,6 +257,33 @@ copyLatex.addEventListener("click", async () => {
   const latex = recognizedResult?.latexSource || resultText.textContent;
   await navigator.clipboard.writeText(latex);
   setStatus("已复制 LaTeX 源码");
+});
+copyMathml.addEventListener("click", async () => {
+  const latex = recognizedResult?.latexSource || resultText.textContent;
+  if (!latex) return;
+  try {
+    if (typeof katex === "undefined") {
+      setStatus("KaTeX 库未加载，请检查网络");
+      return;
+    }
+    // 将每行 LaTeX 分别转为 MathML，再拼接
+    const lines = latex.split("\n").filter(l => l.trim());
+    const mathmlParts = lines.map(line => {
+      return katex.renderToString(line.trim(), {
+        output: "mathml",
+        throwOnError: false,
+        displayMode: false
+      });
+    });
+    const combinedMathml = mathmlParts.join("<br/>");
+    // 包装为 Word 可识别的 HTML
+    const html = `<!DOCTYPE html><html><body style="font-size:14pt">${combinedMathml}</body></html>`;
+    const blob = new Blob([html], { type: "text/html" });
+    await navigator.clipboard.write([new ClipboardItem({ "text/html": blob })]);
+    setStatus("已复制为 Word 公式格式，在 Word 中粘贴即可");
+  } catch (err) {
+    setStatus("公式转换失败: " + err.message);
+  }
 });
 btnExportTxt.addEventListener("click", exportTxt);
 btnExportXlsx.addEventListener("click", exportXlsx);
