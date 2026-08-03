@@ -37,6 +37,7 @@ button:not(:disabled):active { transform: scale(0.98); }
 .result { border-top: 1px solid #d8e2df; margin-top: 20px; }
 h2 { font-size: 18px; }
 #copy { background: #394a59; padding: 7px 12px; }
+#copy-latex { background: #6a1b9a; padding: 7px 12px; font-size: 13px; }
 #export-txt { background: #25433c; padding: 7px 12px; }
 #export-xlsx { background: #075d50; padding: 7px 12px; }
 .export-tools { display: flex; gap: 6px; }

@@ -5,6 +5,7 @@ const recognize = document.querySelector("#recognize");
 const status = document.querySelector("#status");
 const resultText = document.querySelector("#result-text");
 const copy = document.querySelector("#copy");
+const copyLatex = document.querySelector("#copy-latex");
 const btnExportTxt = document.querySelector("#export-txt");
 const btnExportXlsx = document.querySelector("#export-xlsx");
 const layoutMode = document.querySelector("#layout-mode");
@@ -76,6 +77,9 @@ function selectService(service) {
   selectedService = service;
   serviceSearch.value = service.name;
   serviceDescription.textContent = `${service.category} · 剩余免费 ${service.freeQuota} 次 · ${service.id}`;
+  // 公式识别接口显示复制 LaTeX 按钮
+  const isFormula = service.id === "formula";
+  copyLatex.hidden = !isFormula;
   serviceList.hidden = true;
 }
 
@@ -225,6 +229,8 @@ recognize.addEventListener("click", async () => {
     recognizedResult = result;
     showResult("layout");
     copy.disabled = !result.layoutText;
+    copyLatex.disabled = false;
+    copyLatex.hidden = selectedService?.id !== "formula";
     layoutMode.disabled = !result.hasLayout;
     plainMode.disabled = false;
     btnExportTxt.disabled = false;
@@ -241,6 +247,11 @@ recognize.addEventListener("click", async () => {
 layoutMode.addEventListener("click", () => showResult("layout"));
 plainMode.addEventListener("click", () => showResult("plain"));
 copy.addEventListener("click", async () => { await navigator.clipboard.writeText(resultText.textContent); setStatus("已复制识别结果"); });
+copyLatex.addEventListener("click", async () => {
+  const latex = recognizedResult?.latexSource || resultText.textContent;
+  await navigator.clipboard.writeText(latex);
+  setStatus("已复制 LaTeX 源码");
+});
 btnExportTxt.addEventListener("click", exportTxt);
 btnExportXlsx.addEventListener("click", exportXlsx);
 

@@ -274,8 +274,17 @@ export async function onRequest(context) {
     const plainText = lines.join("\n");
     const layoutText = layoutLines.join("\n");
 
+    // 公式识别：提取 LaTeX 源码
+    let latexSource = "";
+    if (serviceId === "formula") {
+      // 公式 API 的 words_result 中 words 字段即为 LaTeX
+      if (Array.isArray(ocrData.words_result)) {
+        latexSource = ocrData.words_result.map(w => w.words).filter(Boolean).join("\n");
+      }
+    }
+
     return new Response(JSON.stringify({
-      ok: true, lines, wordsCount: lines.length, text: plainText, plainText, layoutText, hasLayout
+      ok: true, lines, wordsCount: lines.length, text: plainText, plainText, layoutText, hasLayout, latexSource
     }), {
       status: 200, headers: { "Content-Type": "application/json" }
     });
