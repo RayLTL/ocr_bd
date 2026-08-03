@@ -266,23 +266,62 @@ copyMathml.addEventListener("click", async () => {
       setStatus("KaTeX 库未加载，请检查网络");
       return;
     }
-    // 将每行 LaTeX 分别转为 MathML，再拼接
-    const lines = latex.split("\n").filter(l => l.trim());
-    const mathmlParts = lines.map(line => {
-      return katex.renderToString(line.trim(), {
-        output: "mathml",
-        throwOnError: false,
-        displayMode: false
-      });
+    // 将 LaTeX 渲染为 HTML（含完整公式样式）
+    const renderedHtml = katex.renderToString(latex.trim(), {
+      output: "html",
+      throwOnError: false,
+      displayMode: true
     });
-    const combinedMathml = mathmlParts.join("<br/>");
-    // 包装为 Word 可识别的 HTML
-    const html = `<!DOCTYPE html><html><body style="font-size:14pt">${combinedMathml}</body></html>`;
-    const blob = new Blob([html], { type: "text/html" });
-    await navigator.clipboard.write([new ClipboardItem({ "text/html": blob })]);
-    setStatus("已复制为 Word 公式格式，在 Word 中粘贴即可");
+    // 包装为完整 HTML 文档，Word 可识别
+    const html = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+.katex { font-size: 1.2em; line-height: 1.4; }
+.katex .mathnormal { font-style: italic; }
+</style>
+</head>
+<body style="font-size:14pt; padding:12px; background:#fff">
+${renderedHtml}
+</body>
+</html>`;
+    // 方法1：ClipboardItem API（Chrome/Edge）
+    try {
+      const htmlBlob = new Blob([html], { type: "text/html" });
+      const textBlob = new Blob([latex], { type: "text/plain" });
+      await navigator.clipboard.write([
+        new ClipboardItem({ "text/html": htmlBlob, "text/plain": textBlob })
+      ]);
+      setStatus("已复制为公式，在 Word 中粘贴即可");
+      return;
+    } catch (clipErr) {
+      // ClipboardItem 失败，尝试方法2
+    }
+    // 方法2：使用 execCommand 将 HTML 写入临时选区
+    const container = document.createElement("div");
+    container.innerHTML = html;
+    container.style.position = "fixed";
+    container.style.left = "-9999px";
+    container.style.top = "0";
+    document.body.appendChild(container);
+    const range = document.createRange();
+    range.selectNodeContents(container);
+    const selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+    const ok = document.execCommand("copy");
+    selection.removeAllRanges();
+    document.body.removeChild(container);
+    if (ok) {
+      setStatus("已复制为公式，在 Word 中粘贴即可");
+    } else {
+      // 方法3：兜底，复制纯文本 LaTeX
+      await navigator.clipboard.writeText(latex);
+      setStatus("已复制 LaTeX 源码，请粘贴到 Word 公式编辑器");
+    }
   } catch (err) {
-    setStatus("公式转换失败: " + err.message);
+    setStatus("复制失败: " + err.message);
   }
 });
 btnExportTxt.addEventListener("click", exportTxt);
